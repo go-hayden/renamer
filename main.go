@@ -6,10 +6,10 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	renamer "renamer/rn"
 	"strconv"
 	"strings"
 
+	renamer "github.com/go-hayden/renamer/rn"
 	"github.com/go-hayden/toolbox"
 )
 
