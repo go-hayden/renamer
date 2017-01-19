@@ -5,11 +5,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
 	renamer "github.com/go-hayden/renamer/rn"
+
 	"github.com/go-hayden/toolbox"
 )
 
@@ -72,13 +72,16 @@ func getRenameFiles(dir string) []toolbox.FileInfo {
 		}
 	}
 
+	tmp = getInput("是否使用正则表达式[Y/n]:")
+	useRegexp := tmp == "Y"
+
 	match := ""
 	tmp = getInput("请输入匹配的文件名，支持正则表达式，直接回车则匹配全部文件:")
 	if len(tmp) > 0 {
 		match = tmp
 	}
 
-	files, err := renamer.List(root, includetype, match)
+	files, err := renamer.List(root, includetype, match, useRegexp)
 	if err != nil {
 		panic(err)
 	}
@@ -89,9 +92,12 @@ func getNewFileNames(files []toolbox.FileInfo) []string {
 	tmp := getInput("是否使用时间戳(Y/n):")
 	usetimestamp := tmp == "Y"
 
+	tmp = getInput("是否使用正则表达式[Y/n]:")
+	useRegexp := tmp == "Y"
+
 	regs := make([]*renamer.RenameReplaceInfo, 0, 10)
 	for {
-		tmp = getInput("输入要替换的文件名以及目标文件名，以空格分隔，若只输入一个，则替换全部文件名，不输入直接回车则退出替换设置:\n")
+		tmp = getInput("输入要替换的文件名以及目标文件名，以空格分隔，若只输入一个，则替换全部文件名，结束替换设置请直接回车:\n")
 		if len(tmp) == 0 && len(regs) == 0 {
 			println("请输入至少一个替换规则")
 			continue
@@ -100,6 +106,7 @@ func getNewFileNames(files []toolbox.FileInfo) []string {
 		}
 
 		info := getRenameReplaceInfo(tmp)
+		info.UseRegexp = useRegexp
 		regs = append(regs, info)
 	}
 
@@ -119,7 +126,7 @@ func getRenameReplaceInfo(line string) *renamer.RenameReplaceInfo {
 		}
 	}
 	if len(res) == 2 {
-		info.Toreplace = regexp.MustCompile(res[0])
+		info.Toreplace = res[0]
 		info.Replaceto = res[1]
 	} else if len(res) == 1 {
 		info.Replaceto = res[0]

@@ -18,11 +18,12 @@ const (
 )
 
 type RenameReplaceInfo struct {
-	Toreplace *regexp.Regexp
+	UseRegexp bool
+	Toreplace string
 	Replaceto string
 }
 
-func List(root string, includeType int, matchreg string) ([]toolbox.FileInfo, toolbox.Err) {
+func List(root string, includeType int, match string, useRegexp bool) ([]toolbox.FileInfo, toolbox.Err) {
 	if !toolbox.DirectoryExists(root) {
 		msg := "Directory path '" + root + "' is not exist!"
 		return nil, toolbox.NewErrWithMessage(toolbox.ErrCodeNotExist, msg)
@@ -35,8 +36,8 @@ func List(root string, includeType int, matchreg string) ([]toolbox.FileInfo, to
 
 	result := make([]toolbox.FileInfo, 0, len(dir))
 	var reg *regexp.Regexp
-	if len(matchreg) > 0 {
-		reg = regexp.MustCompile(matchreg)
+	if useRegexp && len(match) > 0 {
+		reg = regexp.MustCompile(match)
 	}
 
 	for _, fileinfo := range dir {
@@ -48,7 +49,11 @@ func List(root string, includeType int, matchreg string) ([]toolbox.FileInfo, to
 			continue
 		}
 
-		if reg != nil && !reg.MatchString(fileinfo.Name()) {
+		if useRegexp && reg != nil && !reg.MatchString(fileinfo.Name()) {
+			continue
+		}
+
+		if !useRegexp && len(match) > 0 && strings.Index(fileinfo.Name(), match) < 0 {
 			continue
 		}
 
@@ -72,15 +77,20 @@ func GenerateNewNames(source []toolbox.FileInfo, usetimestamp bool, replace []*R
 			continue
 		}
 		for idx, fn := range result {
-			if rep.Toreplace == nil {
+			if len(rep.Toreplace) == 0 {
 				result[idx] = rep.Replaceto
 			} else {
-				result[idx] = rep.Toreplace.ReplaceAllString(fn, rep.Replaceto)
+				if rep.UseRegexp {
+					reg := regexp.MustCompile(rep.Toreplace)
+					result[idx] = reg.ReplaceAllString(fn, rep.Replaceto)
+				} else {
+					result[idx] = strings.Replace(fn, rep.Toreplace, rep.Replaceto, -1)
+				}
 			}
 		}
 	}
 
-	dupmap := make(map[string]int)
+	distinct := make(map[string]int)
 	for idx, fi := range source {
 		var timestamp string
 		if usetimestamp {
@@ -89,12 +99,12 @@ func GenerateNewNames(source []toolbox.FileInfo, usetimestamp bool, replace []*R
 		fn := result[idx]
 		fnabs, fnext := getNameAndExt(fn)
 		newfn := fnabs + timestamp + fnext
-		count, ok := dupmap[newfn]
+		count, ok := distinct[newfn]
 		if ok {
-			dupmap[newfn] = count + 1
+			distinct[newfn] = count + 1
 			newfn = fnabs + timestamp + "-" + strconv.Itoa(count) + fnext
 		} else {
-			dupmap[fn] = 1
+			distinct[fn] = 1
 		}
 		result[idx] = newfn
 	}
